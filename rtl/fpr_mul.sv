@@ -35,9 +35,12 @@ module fpr_mul #(
   wire [51:0] in2_mant;
   wire [52:0] in2_mant_extended;
 
+  wire        in1_is_zero, in2_is_zero; // exp == 0
+
   wire        out_sign;
   wire [10:0] out_exp;
   wire [51:0] out_mant;
+  wire [63:0] out_tdata;
 
   wire [105:0] temp_mant;
   wire         temp_mant_msb;
@@ -47,6 +50,10 @@ module fpr_mul #(
   wire         temp_mant_guard_bit;
   wire         temp_mant_sticky_bit;
   wire         temp_mant_grs;
+  wire [51:0]  temp_mant_truncated;
+  wire [52:0]  temp_mant_rounded;      // bit 52 = carry out of rounding
+  wire         temp_mant_round_ovf;
+  wire [10:0]  temp_exp_final;
 
   
   `ifdef FPGA_DESIGN
@@ -68,6 +75,9 @@ module fpr_mul #(
   assign in2_mant = fpr_mul_in2_tdata[(63-1-11):0];
   assign in2_mant_extended = {1'b1, in2_mant};
 
+  assign in1_is_zero = (in1_exp == 11'd0);
+  assign in2_is_zero = (in2_exp == 11'd0);
+
 
   // assign temp_mant = in1_mant_extended * in2_mant_extended;
   assign uint64_mult_in1 = {11'b0, in1_mant_extended};
@@ -87,11 +97,26 @@ module fpr_mul #(
                                 (temp_mant_sticky_bit == 1'b1) ? 1'b1 : 
                                 (temp_mant_lsb_bit == 1'b1)    ? 1'b1 : 1'b0;
 
-  assign temp_exp_extended = in1_exp + in2_exp - temp_exp_adjust;
+  assign temp_exp_extended = in1_exp + in2_exp - temp_exp_adjust; // kept for the DEBUG print
+
+  // Round. If the mantissa is all ones and rounds up, it carries out to 10.000...0:
+  // the mantissa field becomes 0 and the exponent must go up by 1.
+  assign temp_mant_truncated = (temp_mant_msb == 1'b1) ? temp_mant[104-:52] : temp_mant[103-:52];
+  assign temp_mant_rounded   = {1'b0, temp_mant_truncated} + {52'd0, temp_mant_grs};
+  assign temp_mant_round_ovf = temp_mant_rounded[52];
+
+  // Biased exponent = e1 + e2 - 1023 (+1 if the product was >= 2.0, +1 if rounding carried out).
+  // 11-bit (mod 2048) arithmetic gives the right answer whenever the result is in the normal range.
+  assign temp_exp_final = in1_exp + in2_exp - 11'd1023 + {10'd0, temp_mant_msb} + {10'd0, temp_mant_round_ovf};
 
   assign out_sign = in1_sign ^ in2_sign;
-  assign out_exp = temp_exp_extended[10:0];
-  assign out_mant = (temp_mant_msb == 1'b1) ? (temp_mant[104-:52] + temp_mant_grs) : (temp_mant[103-:52] + temp_mant_grs);
+  assign out_exp  = temp_exp_final;
+  assign out_mant = temp_mant_rounded[51:0];
+
+  // Scope (matches FALCON's needs): inputs are zero or normal, results stay in the normal
+  // range. Inf, NaN, subnormals and exponent overflow/underflow are not handled.
+  // Zero is not an exception: 0 * x must be 0, so it is still detected here.
+  assign out_tdata = (in1_is_zero | in2_is_zero) ? {out_sign, 63'd0} : {out_sign, out_exp, out_mant};
 
 
   // Output
@@ -101,7 +126,7 @@ module fpr_mul #(
       fpr_mul_out_tdata_reg <= 64'b0;
     end else begin
       fpr_mul_out_tvalid_reg <= fpr_mul_in_tvalid;
-      fpr_mul_out_tdata_reg <= {out_sign, out_exp, out_mant};
+      fpr_mul_out_tdata_reg <= out_tdata;
     end
   end
 
