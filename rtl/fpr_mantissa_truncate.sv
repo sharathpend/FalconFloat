@@ -1,4 +1,14 @@
 
+/*
+Disclaimer: This project is provided "AS IS" without warranty for personal,
+educational, and research use. See the LICENSE file for the full terms and
+restrictions, including non-commercial use conditions.
+*/
+
+/*
+Designer: Sharath Pendyala
+*/
+
 // Take an input mantissa, shift it right performing GRS rounding.
 // The output is full size, and the correct bits have to be picked up externally.
 `include "defines.vh"

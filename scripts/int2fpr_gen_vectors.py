@@ -1,3 +1,8 @@
+
+# Disclaimer: This project is provided "AS IS" without warranty for personal,
+# educational, and research use. See the LICENSE file for the full terms and
+# restrictions, including non-commercial use conditions.
+
 # Generates int2fpr_vectors.hex for int2fpr_tb.sv.
 # Each line: <64-bit input hex><64-bit expected double hex>
 # Expected values come from Python's float(), which is IEEE-754 round-to-nearest-even.

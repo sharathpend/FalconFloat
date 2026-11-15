@@ -1,5 +1,15 @@
 
-// int64 multiplication. Can be used for ffsampling and ApproxExp MAC
+/*
+Disclaimer: This project is provided "AS IS" without warranty for personal,
+educational, and research use. See the LICENSE file for the full terms and
+restrictions, including non-commercial use conditions.
+*/
+
+/*
+Designer: Sharath Pendyala
+*/
+
+// int64 multiplication. Can be used for ApproxExp MAC
 
   // for ApproxExp,
   // z,y 64 bit uint64 [0, 1, ... , (2^63)-1]

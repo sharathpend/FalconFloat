@@ -1,3 +1,8 @@
+
+# Disclaimer: This project is provided "AS IS" without warranty for personal,
+# educational, and research use. See the LICENSE file for the full terms and
+# restrictions, including non-commercial use conditions.
+
 # Generates fpr_floor_vectors.hex for fpr_floor_tb.sv.
 # Each line: <input double hex><expected int64 hex>
 # Out-of-range inputs and NaN saturate by sign, matching fpr_floor.

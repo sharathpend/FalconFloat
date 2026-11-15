@@ -1,3 +1,14 @@
+
+/*
+Disclaimer: This project is provided "AS IS" without warranty for personal,
+educational, and research use. See the LICENSE file for the full terms and
+restrictions, including non-commercial use conditions.
+*/
+
+/*
+Designer: Sharath Pendyala
+*/
+
 `timescale 1ns/1ps
 module lo_check_tb;
   reg  [63:0] din; wire [5:0] dout;

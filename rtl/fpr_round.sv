@@ -1,7 +1,14 @@
-//=====================================================
-// Designer: Sharath Pendyala
-// email: spendya@ncsu.edu, sharathpawan@gmail.com
-//=====================================================
+
+/*
+Disclaimer: This project is provided "AS IS" without warranty for personal,
+educational, and research use. See the LICENSE file for the full terms and
+restrictions, including non-commercial use conditions.
+*/
+
+/*
+Designer: Sharath Pendyala
+*/
+
 
 // Double to signed int64, round to nearest, ties to even (FALCON fpr_rint).
 // Inputs with |x| >= 2^63 saturate to 0x7FFF_FFFF_FFFF_FFFF / 0x8000_0000_0000_0000

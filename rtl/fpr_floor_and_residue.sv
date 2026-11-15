@@ -1,4 +1,14 @@
 
+/*
+Disclaimer: This project is provided "AS IS" without warranty for personal,
+educational, and research use. See the LICENSE file for the full terms and
+restrictions, including non-commercial use conditions.
+*/
+
+/*
+Designer: Sharath Pendyala
+*/
+
 `include "defines.vh"
 
 // floor(x) as a signed int64, and the residue r = x - floor(x) as a double,

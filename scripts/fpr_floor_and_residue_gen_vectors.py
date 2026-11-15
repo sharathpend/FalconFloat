@@ -1,3 +1,8 @@
+
+# Disclaimer: This project is provided "AS IS" without warranty for personal,
+# educational, and research use. See the LICENSE file for the full terms and
+# restrictions, including non-commercial use conditions.
+
 # Generates fpr_floor_and_residue_vectors.hex for fpr_floor_and_residue_tb.sv.
 # Each line: <input double hex><expected floor int64 hex><expected residue double hex>
 # Reference matches FALCON's  s = fpr_floor(x); r = fpr_sub(x, fpr_of(s)):

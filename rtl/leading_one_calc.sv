@@ -1,4 +1,14 @@
 
+/*
+Disclaimer: This project is provided "AS IS" without warranty for personal,
+educational, and research use. See the LICENSE file for the full terms and
+restrictions, including non-commercial use conditions.
+*/
+
+/*
+Designer: Sharath Pendyala
+*/
+
 // Tells the index of the first 1 in little endian.
 // If input is 64'b0001_0000_0000_...._0000, I expected to see 60.
 // The only special case it won't work for is 0, but since this is being used in int2fpr, it looks

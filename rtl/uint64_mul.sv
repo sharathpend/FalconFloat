@@ -1,7 +1,18 @@
 
+/*
+Disclaimer: This project is provided "AS IS" without warranty for personal,
+educational, and research use. See the LICENSE file for the full terms and
+restrictions, including non-commercial use conditions.
+*/
+
+/*
+Designer: Sharath Pendyala
+*/
+
 // uint64 multiplication. Can be used for ffsampling
 // with external unsign and sign conversion logic and
 // for ApproxExp mac
+// currently not integrated with fpr_mul_top. Will require some minor port changes.
 
   // for ApproxExp,
   // z,y 64 bit uint64 [0, 1, ... , (2^63)-1]

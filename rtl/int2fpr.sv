@@ -1,7 +1,14 @@
-//=====================================================
-// Designer: Sharath Pendyala
-// 
-//=====================================================
+
+/*
+Disclaimer: This project is provided "AS IS" without warranty for personal,
+educational, and research use. See the LICENSE file for the full terms and
+restrictions, including non-commercial use conditions.
+*/
+
+/*
+Designer: Sharath Pendyala
+*/
+
 
 // Signed Int64 to FPR (IEEE-754 binary64), round-to-nearest-even
 `include "defines.vh"

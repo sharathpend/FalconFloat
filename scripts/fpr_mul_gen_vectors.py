@@ -1,3 +1,8 @@
+
+# Disclaimer: This project is provided "AS IS" without warranty for personal,
+# educational, and research use. See the LICENSE file for the full terms and
+# restrictions, including non-commercial use conditions.
+
 # Generates fpr_mul_vectors.hex for fpr_mul_tb.sv.
 # Each line: <in1 hex><in2 hex><expected hex>, 16 hex chars each.
 # Reference: exact integer product, round-to-nearest-even.
