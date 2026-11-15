@@ -1,4 +1,5 @@
 # reg_reg works for xilinx FPGAs. For other devices, you need to check the netlist once.
+# The registers have dont touch on them, so find them in your netlist and add them here.
 
 # Multicycle path constraints for fpr_mul
 # set_multicycle_path 2 -setup -to [get_cells -hierarchical fpr_mul_out_tdata_reg_reg*]
