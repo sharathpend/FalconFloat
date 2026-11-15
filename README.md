@@ -2,7 +2,7 @@
 
 **Paper**: FalconFloat: An Open-Source, Specialized Floating-Point Unit for FALCON Signature Generation on FPGA
 
-**Conference**: IC-FPT (December 2026)
+**Conference**: Proceedings of the 2026 International Conference on Field Programmable Technology (ICFPT), December 7-10, 2026, Honolulu, Hawaii, USA.
 
 ## Contact
 
