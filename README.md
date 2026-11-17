@@ -15,3 +15,7 @@ sharathpawan@gmail.com
 ## Acknowledgements
 
 This paper is supported in part by the National Science Foundation (NSF) Award No. 2350142 and Deutsche Forschungsgemeinschaft (DFG) Award No. 543352068.
+
+## Planned updates
+
+We plan to add a few configurations of exponential IPs targeting FALCON. Expected: December 2026 - January 2027.
