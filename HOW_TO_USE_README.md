@@ -100,6 +100,10 @@ All RTL files are in `rtl/`.
 | `fpr_fma_tb.sv`                      | `fpr_fma_gen_vectors.py`                    | `fpr_fma_top.sv fpr_fma.sv leading_one_calc.sv` + (*)                                       |
 | `fpr_mac_tb.sv`                      | `fpr_mac_gen_vectors.py` (imports `fpr_fma_gen_vectors.py`) | `fpr_mac.sv fpr_fma.sv leading_one_calc.sv` + (*)                           |
 | `fpr_butterfly_tb.sv`                | `fpr_butterfly_gen_vectors.py` (imports `fpr_fma_gen_vectors.py`) | `fpr_butterfly.sv fpr_fma.sv fpr_mul.sv fpr_add.sv fpr_add_norm.sv leading_one_calc.sv` + (*) |
+| `fpr_div_tb.sv` (`INV` = 0)          | `fpr_div_gen_vectors.py`                    | `fpr_div.sv fpr_inv.sv`                                                                     |
+| `fpr_div_tb.sv` (`INV` = 1)          | `fpr_inv_gen_vectors.py`                    | `fpr_div.sv fpr_inv.sv`                                                                     |
+| `fpr_sqrt_tb.sv`                     | `fpr_sqrt_gen_vectors.py`                   | `fpr_sqrt.sv`                                                                               |
+| `fpr_div_sqrt_tb.sv`                 | reuses the div, inv and sqrt vector files   | `fpr_div_sqrt.sv`                                                                           |
 | `leading_one_calc_check_tb.sv`       | none (checks itself)                        | `leading_one_calc.sv`                                                                       |
 
 (*) Multiplier files: `uint_mul_core.sv karatsuba_mul.sv comba_mul.sv`. Add `-DKARATSUBA_MUL` or `-DCOMBA_MUL` to the `iverilog` command to test with that multiplier instead of the default `a * b` (see [Choosing the multiplier](#choosing-the-multiplier)).
@@ -128,6 +132,9 @@ Some testbenches take parameters that match the module parameters (see [Module p
 | `fpr_fma_tb.sv` | `FUSED` = 1 or 0, `REG_STAGES` = 1 or 2, `INTERNAL_MULT` = 0 (through `fpr_fma_top`) or 1 |
 | `fpr_mac_tb.sv` | `FUSED` = 1 or 0, `REG_STAGES` = 1 or 2, `INTERNAL_MULT` = 0 (testbench supplies the multiplier) or 1 |
 | `fpr_butterfly_tb.sv` | `FUSED` = 0 or 1, `REG_STAGES` = 1 or 2 |
+| `fpr_div_tb.sv` | `INV` = 0 (`fpr_div`) or 1 (`fpr_inv`), `BITS_PER_CYCLE` = 2 (1..27), `PIPELINED` = 0 or 1 |
+| `fpr_sqrt_tb.sv` | `BITS_PER_CYCLE` = 2 (1..27), `PIPELINED` = 0 or 1 |
+| `fpr_div_sqrt_tb.sv` | `BITS_PER_CYCLE` = 2 (1..27), `PIPELINED` = 0 or 1 |
 
 For example, the unfused FMA with 2 register stages and its own multiplier:
 
@@ -167,6 +174,15 @@ run fpr_ceil_int_fpr_and_residue  $R/fpr_ceil_int_fpr_and_residue.sv $R/fpr_ceil
 run fpr_trunc                     $R/fpr_trunc.sv
 run leading_one_calc_check        $R/leading_one_calc.sv
 run mult_check                    $R/karatsuba_mul.sv $R/comba_mul.sv
+for I in 0 1; do for P in 0 1; do for K in 1 2 4 27; do
+  iverilog -g2012 -I $R -P fpr_div_tb.INV=$I -P fpr_div_tb.PIPELINED=$P -P fpr_div_tb.BITS_PER_CYCLE=$K -o fpr_div.vvp fpr_div_tb.sv $R/fpr_div.sv $R/fpr_inv.sv && vvp -n fpr_div.vvp | grep "vectors"
+done; done; done
+for P in 0 1; do for K in 1 2 4 27; do
+  iverilog -g2012 -I $R -P fpr_sqrt_tb.PIPELINED=$P -P fpr_sqrt_tb.BITS_PER_CYCLE=$K -o fpr_sqrt.vvp fpr_sqrt_tb.sv $R/fpr_sqrt.sv && vvp -n fpr_sqrt.vvp | grep "vectors"
+done; done
+for P in 0 1; do for K in 2 27; do
+  iverilog -g2012 -I $R -P fpr_div_sqrt_tb.PIPELINED=$P -P fpr_div_sqrt_tb.BITS_PER_CYCLE=$K -o fpr_div_sqrt.vvp fpr_div_sqrt_tb.sv $R/fpr_div_sqrt.sv && vvp -n fpr_div_sqrt.vvp | grep "vectors"
+done; done
 for D in DEFAULT_MUL KARATSUBA_MUL COMBA_MUL; do
   echo "== multiplier: $D"
   for P in 0 1; do
@@ -183,7 +199,7 @@ for D in DEFAULT_MUL KARATSUBA_MUL COMBA_MUL; do
 done
 ```
 
-The full run takes about 20 minutes, most of it in the FMA, MAC and butterfly runs, which are repeated for each of the three multipliers. To check only one multiplier, change the `for D in ...` list. The `.vvp` files are build outputs and can be deleted afterwards.
+The full run takes about 40 minutes, most of it in the FMA, MAC and butterfly runs, which are repeated for each of the three multipliers. To check only one multiplier, change the `for D in ...` list. The `.vvp` files are build outputs and can be deleted afterwards.
 
 ## Module parameters
 
@@ -294,6 +310,54 @@ The forward pipeline is MUL -> FMA -> ADD and the inverse is ADD -> MUL -> FMA, 
 The 4 mantissa multipliers are inside the unit (`INTERNAL_MULT = 1` on the `fpr_mul` and `fpr_fma` instances), because all 4 are busy every cycle. They still use `uint_mul_core`, so `defines.vh` picks the default, Karatsuba or Comba multiplier.
 
 Scope: as for the other units, inputs, intermediate products and sums, and outputs are zero or normal doubles. This is always true for FFT data in FALCON.
+
+### `fpr_div` and `fpr_inv`: division and reciprocal
+
+`fpr_div` computes `a / b` and `fpr_inv` computes `1 / x`, both rounded to nearest even. Division is correctly rounded, so both are bit-exact with FALCON's `fpr_div` and `fpr_inv` (`fpr_inv(x) = fpr_div(1.0, x)`). `fpr_inv` is `fpr_div` with the dividend tied to 1.0, and has the same parameters and handshake.
+
+The quotient comes from a radix-2 restoring digit recurrence on the significands, with no multipliers. The dividend is pre-shifted so the quotient is in [1, 2), each step produces one quotient bit with a compare and subtract, 54 bits (53 + guard) are computed, and a non-zero remainder sets the sticky bit.
+
+| Parameter        | Values | Meaning |
+|------------------|--------|---------|
+| `BITS_PER_CYCLE` | 1..27 (default 2) | Quotient bits per step (K chained compare/subtract stages). The divide takes `ITER = ceil(54 / K)` steps. |
+| `PIPELINED`      | 0 (default) | Iterative: one recurrence unit. Latency `ITER + 2` cycles, one new input every `ITER + 1` cycles, and `in_tready` stays low while busy. |
+|                  | 1      | Fully pipelined: one register stage per step. Latency `ITER + 1` cycles, one input per cycle, `in_tready` always 1. About `ITER` times the area of the iterative version. |
+
+For example, `BITS_PER_CYCLE = 2` gives 27 steps (28 cycles per divide when iterative), and `BITS_PER_CYCLE = 4` gives 14 steps with a longer critical path per step.
+
+An input is accepted when `in_tvalid & in_tready`, and the output data only updates when `out_tvalid` is set.
+
+Scope: a is zero or normal, b is normal, and the result is zero or normal. Division by zero is not handled (FALCON never divides by zero).
+
+### `fpr_sqrt`: square root
+
+`fpr_sqrt` computes `sqrt(x)`, rounded to nearest even. Square root is correctly rounded, so it is bit-exact with FALCON's `fpr_sqrt`. It has the same parameters (`BITS_PER_CYCLE` 1..27, `PIPELINED` 0 or 1), latency, throughput and `in_tready` handshake as `fpr_div` (see the table above), so the two can be swapped in a schedule.
+
+The root comes from a restoring digit-by-digit square root on the significand, with no multipliers. For an odd unbiased exponent the significand is doubled, so the root is in [1, 2) and the result exponent is just halved. Each step brings down 2 bits of the significand and produces 1 root bit. 54 bits (53 + guard) are computed, and a non-zero remainder sets the sticky bit.
+
+Scope: x is +/-0 or a positive normal number, and the result is then always normal. `sqrt(-0) = -0`. Negative inputs are not handled (FALCON only takes square roots of non-negative values).
+
+### `fpr_div_sqrt`: shared division / square root unit
+
+`fpr_div_sqrt` does both operations in one recurrence, chosen per input by `fpr_div_sqrt_op`:
+
+| `fpr_div_sqrt_op` | Result | Inputs used |
+|-------------------|--------|-------------|
+| 0 | `a / b` (for `1 / x`, set a = 1.0) | `in1` = a, `in2` = b |
+| 1 | `sqrt(a)` | `in1` = a (`in2` is ignored) |
+
+It uses the same algorithms, parameters (`BITS_PER_CYCLE`, `PIPELINED`), latency, throughput and `in_tready` handshake as `fpr_div` and `fpr_sqrt`, and its results are bit-exact with them. With `PIPELINED = 1` the op travels with each input, so divides and square roots can be mixed in back-to-back cycles.
+
+Both options are kept so that designers can choose:
+
+| | `fpr_div` + `fpr_sqrt` (+ `fpr_inv`) | `fpr_div_sqrt` |
+|---|---|---|
+| Area | Two recurrences, two sets of registers and rounding logic | One of each, plus muxes, so smaller |
+| Concurrency | A divide and a square root can run at the same time | One at a time (iterative), or interleaved but sharing the stages (pipelined) |
+| Critical path | Each recurrence has its own width (the divide remainder is a few bits narrower) | Slightly longer: muxes in every chained step, and every step uses the wider square-root remainder |
+| `fpr_inv` | The dividend is a constant 1.0, so synthesis can trim a little | Pass a = 1.0 |
+
+In FALCON the divides and reciprocals happen while the LDL tree is built, and the square roots when the tree leaves are normalized afterwards. So the two rarely compete for the unit, and the shared version usually loses no throughput.
 
 ## Notes
 
