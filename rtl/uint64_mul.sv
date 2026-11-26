@@ -12,7 +12,7 @@ Designer: Sharath Pendyala
 // uint64 multiplication, full 128-bit product. Can be used for ffsampling
 // with external unsign and sign conversion logic and
 // for ApproxExp mac
-// Integrated in fpr_mul_top (fpr_mul_op = 2'b10) and fpr_top_full (op[5]).
+// Integrated in fpr_mul_top (fpr_mul_op = 2'b10) and fpr_top (FPR_OP_UINT64_MUL).
 
   // for ApproxExp,
   // z,y 64 bit uint64 [0, 1, ... , (2^63)-1]

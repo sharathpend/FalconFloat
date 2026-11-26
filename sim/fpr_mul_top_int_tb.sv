@@ -11,13 +11,12 @@ Designer: Sharath Pendyala
 
 `timescale 1ns/1ps
 
-// Self-checking testbench for the integer paths of fpr_mul_top and fpr_top_full
-// (int64 mul and the full 128-bit uint64 mul), with the op changing every cycle so
-// the shared multiplier is switched between users. The fp mul path is checked by
-// fpr_mul_tb. Reference is computed in the testbench.
-// Run:  iverilog -g2012 fpr_mul_top_int_tb.sv fpr_mul_top.sv fpr_top_full.sv fpr_mul.sv int64_mul.sv uint64_mul.sv
-//                fpr_add.sv fpr_add_norm.sv fpr_floor.sv int2fpr.sv leading_one_calc.sv uint_mul_core.sv
-//                karatsuba_mul.sv comba_mul.sv && vvp a.out
+// Self-checking testbench for the integer paths of fpr_mul_top (int64 mul and the
+// full 128-bit uint64 mul), with the op changing every cycle so the shared multiplier
+// is switched between users. The fp mul path is checked by fpr_mul_tb, and fpr_top's
+// int muls by fpr_top_tb. Reference is computed in the testbench.
+// Run:  iverilog -g2012 fpr_mul_top_int_tb.sv fpr_mul_top.sv fpr_mul.sv int64_mul.sv uint64_mul.sv
+//                uint_mul_core.sv karatsuba_mul.sv comba_mul.sv && vvp a.out
 module fpr_mul_top_int_tb #(
   parameter NUM_RANDOM = 50000
 );
@@ -30,9 +29,6 @@ module fpr_mul_top_int_tb #(
   wire         mt_fp_tvalid, mt_i64_tvalid, mt_u64_tvalid;
   wire [63:0]  mt_fp_tdata;
   wire [127:0] mt_i64_tdata, mt_u64_tdata;
-  wire         tf_tvalid, tf_i64_tvalid, tf_u64_tvalid;
-  wire [63:0]  tf_tdata;
-  wire [127:0] tf_i64_tdata, tf_u64_tdata;
 
   reg  [63:0]  a, b;
   reg  [1:0]   o;
@@ -55,21 +51,6 @@ module fpr_mul_top_int_tb #(
     .uint64_mul_out_tdata  (mt_u64_tdata)
   );
 
-  fpr_top_full dut_top_full (
-    .clk                   (clk),
-    .rst_n                 (rst_n),
-    .in_tvalid             (in_tvalid),
-    .in1_tdata             (in1),
-    .in2_tdata             (in2),
-    .op                    ((op == 2'd0) ? 6'b001000 : (op == 2'd1) ? 6'b010000 : 6'b100000),
-    .out_tvalid            (tf_tvalid),
-    .out_tdata             (tf_tdata),
-    .int64_mul_out_tvalid  (tf_i64_tvalid),
-    .int64_mul_out_tdata   (tf_i64_tdata),
-    .uint64_mul_out_tvalid (tf_u64_tvalid),
-    .uint64_mul_out_tdata  (tf_u64_tdata)
-  );
-
   always #5 clk = ~clk;
 
   initial begin
@@ -87,20 +68,19 @@ module fpr_mul_top_int_tb #(
       exp_u64 = a * b;
       if (o == 2'd1) begin
         n_i64 = n_i64 + 1;
-        if (!mt_i64_tvalid || mt_i64_tdata !== exp_i64 || !tf_i64_tvalid || tf_i64_tdata !== exp_i64) begin
+        if (!mt_i64_tvalid || mt_i64_tdata !== exp_i64) begin
           err = err + 1;
-          if (err <= 10) $display("INT64 MISMATCH  a=%h b=%h mul_top=%h top_full=%h exp=%h", a, b, mt_i64_tdata, tf_i64_tdata, exp_i64);
+          if (err <= 10) $display("INT64 MISMATCH  a=%h b=%h got=%h exp=%h", a, b, mt_i64_tdata, exp_i64);
         end
       end
       if (o == 2'd2) begin
         n_u64 = n_u64 + 1;
-        if (!mt_u64_tvalid || mt_u64_tdata !== exp_u64 || !tf_u64_tvalid || tf_u64_tdata !== exp_u64) begin
+        if (!mt_u64_tvalid || mt_u64_tdata !== exp_u64) begin
           err = err + 1;
-          if (err <= 10) $display("UINT64 MISMATCH a=%h b=%h mul_top=%h top_full=%h exp=%h", a, b, mt_u64_tdata, tf_u64_tdata, exp_u64);
+          if (err <= 10) $display("UINT64 MISMATCH a=%h b=%h got=%h exp=%h", a, b, mt_u64_tdata, exp_u64);
         end
       end
-      if ((mt_u64_tvalid != (o == 2'd2)) || (mt_i64_tvalid != (o == 2'd1)) || (mt_fp_tvalid != (o == 2'd0)) ||
-          (tf_u64_tvalid != (o == 2'd2)) || (tf_i64_tvalid != (o == 2'd1))) begin
+      if ((mt_u64_tvalid != (o == 2'd2)) || (mt_i64_tvalid != (o == 2'd1)) || (mt_fp_tvalid != (o == 2'd0))) begin
         err = err + 1;
         if (err <= 10) $display("TVALID MISMATCH op=%0d", o);
       end
