@@ -11,11 +11,15 @@ Designer: Sharath Pendyala
 
 `timescale 1ns/1ps
 
-// Self-checking testbench for fpr_mul, driven through fpr_mul_top with fpr_mul_op = 0
-// so the shared multiplier is in the loop.
+// Self-checking testbench for fpr_mul.
+// STANDALONE = 0: driven through fpr_mul_top with fpr_mul_op = 0, so the shared multiplier is in the loop.
+// STANDALONE = 1: fpr_mul on its own with INTERNAL_MULT = 1.
 // Generate vectors first:  python3 fpr_mul_gen_vectors.py
 // Then:  iverilog -g2012 fpr_mul_tb.sv fpr_mul_top.sv fpr_mul.sv int64_mul.sv && vvp a.out
-module fpr_mul_tb;
+// Standalone:  iverilog -g2012 -P fpr_mul_tb.STANDALONE=1 fpr_mul_tb.sv fpr_mul.sv && vvp a.out
+module fpr_mul_tb #(
+  parameter STANDALONE = 0
+);
   reg          clk = 0;
   reg          rst_n = 0;
   reg          in_tvalid = 0;
@@ -28,18 +32,39 @@ module fpr_mul_tb;
   reg  [63:0]  vec_a, vec_b, vec_exp;
   integer      fd, r, n = 0, err = 0;
 
-  fpr_mul_top dut (
-    .clk                  (clk),
-    .rst_n                (rst_n),
-    .fpr_mul_in_tvalid    (in_tvalid),
-    .fpr_mul_in1_tdata    (in1),
-    .fpr_mul_in2_tdata    (in2),
-    .fpr_mul_op           (1'b0),
-    .fpr_mul_out_tvalid   (out_tvalid),
-    .fpr_mul_out_tdata    (out_tdata),
-    .int64_mul_out_tvalid (int64_out_tvalid),
-    .int64_mul_out_tdata  (int64_out_tdata)
-  );
+  generate
+    if (STANDALONE) begin : gen_standalone
+      wire [63:0] unused_mult_in1, unused_mult_in2;
+
+      fpr_mul #(
+        .INTERNAL_MULT (1)
+      ) dut (
+        .clk                (clk),
+        .rst_n              (rst_n),
+        .fpr_mul_in_tvalid  (in_tvalid),
+        .fpr_mul_in1_tdata  (in1),
+        .fpr_mul_in2_tdata  (in2),
+        .uint64_mult_in1    (unused_mult_in1),
+        .uint64_mult_in2    (unused_mult_in2),
+        .uint64_mult_result (128'd0),
+        .fpr_mul_out_tvalid (out_tvalid),
+        .fpr_mul_out_tdata  (out_tdata)
+      );
+    end else begin : gen_shared
+      fpr_mul_top dut (
+        .clk                  (clk),
+        .rst_n                (rst_n),
+        .fpr_mul_in_tvalid    (in_tvalid),
+        .fpr_mul_in1_tdata    (in1),
+        .fpr_mul_in2_tdata    (in2),
+        .fpr_mul_op           (2'b00),
+        .fpr_mul_out_tvalid   (out_tvalid),
+        .fpr_mul_out_tdata    (out_tdata),
+        .int64_mul_out_tvalid (int64_out_tvalid),
+        .int64_mul_out_tdata  (int64_out_tdata)
+      );
+    end
+  endgenerate
 
   always #5 clk = ~clk;
 

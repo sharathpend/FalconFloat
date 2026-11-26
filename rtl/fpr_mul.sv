@@ -11,8 +11,13 @@ Designer: Sharath Pendyala
 
 `include "defines.vh"
 
+// INTERNAL_MULT = 0: the 53x53 mantissa product comes from a shared multiplier
+//                    through the uint64_mult_* ports (see fpr_mul_top).
+// INTERNAL_MULT = 1: standalone, the product is computed inside (uint_mul_core,
+//                    N = 53). uint64_mult_result is ignored and can be tied to 0.
 module fpr_mul #(
-  parameter DEBUG = 0
+  parameter DEBUG = 0,
+  parameter INTERNAL_MULT = 0
 ) (
   input  wire         clk,
   input  wire         rst_n,
@@ -89,10 +94,22 @@ module fpr_mul #(
   assign in2_is_zero = (in2_exp == 11'd0);
 
 
-  // assign temp_mant = in1_mant_extended * in2_mant_extended;
   assign uint64_mult_in1 = {11'b0, in1_mant_extended};
   assign uint64_mult_in2 = {11'b0, in2_mant_extended};
-  assign temp_mant = uint64_mult_result[105:0];
+
+  generate
+    if (INTERNAL_MULT) begin : gen_internal_mult
+      uint_mul_core #(
+        .N (53)
+      ) uint_mul_core_inst (
+        .a (in1_mant_extended),
+        .b (in2_mant_extended),
+        .p (temp_mant)
+      );
+    end else begin : gen_shared_mult
+      assign temp_mant = uint64_mult_result[105:0];
+    end
+  endgenerate
   assign temp_mant_msb = temp_mant[105];
   assign temp_exp_adjust = (temp_mant_msb == 1'b1) ? 'd1022 : 'd1023;
 

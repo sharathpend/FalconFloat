@@ -4,6 +4,16 @@
 
 **Conference**: Proceedings of the 2026 International Conference on Field Programmable Technology (ICFPT), December 7-10, 2026, Honolulu, Hawaii, USA.
 
+## Citation
+
+**DOI**: To be added soon.
+
+**BibTeX**:
+
+```bibtex
+To be added soon.
+```
+
 ## Contact
 
 Sharath Pendyala

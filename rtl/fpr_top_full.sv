@@ -21,13 +21,16 @@ module fpr_top_full #(
   input  wire         in_tvalid,
   input  wire [63:0]  in1_tdata,
   input  wire [63:0]  in2_tdata,
-  input  wire [4:0]   op, // 5'bXXXX1 = add, 5'bXXX10 = floor, 5'bXX100 = int2fp, 5'bX1000 = fp_mul, 5'b10000 = int_mul
+  input  wire [5:0]   op, // 6'bXXXXX1 = add, 6'bXXXX10 = floor, 6'bXXX100 = int2fp, 6'bXX1000 = fp_mul, 6'bX10000 = int_mul, 6'b100000 = uint_mul
 
   output wire         out_tvalid,
   output wire [63:0]  out_tdata,
   
   output wire         int64_mul_out_tvalid,
-  output wire [127:0] int64_mul_out_tdata
+  output wire [127:0] int64_mul_out_tdata,
+
+  output wire         uint64_mul_out_tvalid, // full 128-bit unsigned product
+  output wire [127:0] uint64_mul_out_tdata
 );
 
   wire        fpr_add_out_tvalid;
@@ -52,6 +55,9 @@ module fpr_top_full #(
 
   wire [63:0]  int64_mul_uint64_mult_in1;
   wire [63:0]  int64_mul_uint64_mult_in2;
+
+  wire [63:0]  uint64_mul_uint64_mult_in1;
+  wire [63:0]  uint64_mul_uint64_mult_in2;
 
 
   // FPR Addition
@@ -135,16 +141,42 @@ module fpr_top_full #(
 
     .int64_mul_out_tvalid (int64_mul_out_tvalid),
     .int64_mul_out_tdata  (int64_mul_out_tdata)
-);
+  );
 
-  // Common 64-bit unsigned integer multiplier. Can be replaced with custom multiplier as needed.
-  // Karatsuba and comba code used is by magesh et al., modified for 0 latency
-  assign uint64_mult_in1 = (op[3] == 1'b1) ? fpr_mul_uint64_mult_in1 : int64_mul_uint64_mult_in1;
-  assign uint64_mult_in2 = (op[3] == 1'b1) ? fpr_mul_uint64_mult_in2 : int64_mul_uint64_mult_in2;
+  // Unsigned UINT64 Multiplication, full 128-bit product
+  uint64_mul #(
+    .DEBUG (DEBUG)
+  ) uint64_mul_inst (
+    .clk                   (clk),
+    .rst_n                 (rst_n),
 
-  `ifdef DEFAULT_MUL
-    assign uint64_mult_result = uint64_mult_in1 * uint64_mult_in2;
-  `endif
+    .uint64_mul_in_tvalid  (in_tvalid && op[5]),
+    .uint64_mul_in1_tdata  (in1_tdata),
+    .uint64_mul_in2_tdata  (in2_tdata),
+
+    // to-from shared multiplier
+    .uint64_mult_in1       (uint64_mul_uint64_mult_in1),
+    .uint64_mult_in2       (uint64_mul_uint64_mult_in2),
+    .uint64_mult_result    (uint64_mult_result),
+
+    .uint64_mul_out_tvalid (uint64_mul_out_tvalid),
+    .uint64_mul_out_tdata  (uint64_mul_out_tdata)
+  );
+
+  // Common 64-bit unsigned integer multiplier, implementation chosen in defines.vh
+  // (default, Karatsuba or Comba, see uint_mul_core).
+  assign uint64_mult_in1 = (op[3] == 1'b1) ? fpr_mul_uint64_mult_in1   :
+                           (op[4] == 1'b1) ? int64_mul_uint64_mult_in1 : uint64_mul_uint64_mult_in1;
+  assign uint64_mult_in2 = (op[3] == 1'b1) ? fpr_mul_uint64_mult_in2   :
+                           (op[4] == 1'b1) ? int64_mul_uint64_mult_in2 : uint64_mul_uint64_mult_in2;
+
+  uint_mul_core #(
+    .N (64)
+  ) uint_mul_core_inst (
+    .a (uint64_mult_in1),
+    .b (uint64_mult_in2),
+    .p (uint64_mult_result)
+  );
 
 
   // Output MUX

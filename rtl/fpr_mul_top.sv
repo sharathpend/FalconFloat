@@ -9,7 +9,11 @@ restrictions, including non-commercial use conditions.
 Designer: Sharath Pendyala
 */
 
-// Just the multipliers
+// Just the multipliers, sharing one 64x64 unsigned multiplier (uint_mul_core).
+//   fpr_mul_op = 2'b00: fp mul     -> fpr_mul_out_*
+//   fpr_mul_op = 2'b01: int64 mul  -> int64_mul_out_*  {sign, 1'b0, |a[62:0]| * |b[62:0]|}
+//   fpr_mul_op = 2'b10: uint64 mul -> uint64_mul_out_* full 128-bit a * b
+// A 1-bit op from older designs (0 / 1) still selects fp / int64 mul.
 `include "defines.vh"
 
 module fpr_mul_top #(
@@ -21,14 +25,16 @@ module fpr_mul_top #(
   input  wire         fpr_mul_in_tvalid,
   input  wire [63:0]  fpr_mul_in1_tdata,
   input  wire [63:0]  fpr_mul_in2_tdata,
-  input  wire         fpr_mul_op, // 0 = fp mul, 1 = int64 mul
+  input  wire [1:0]   fpr_mul_op, // 2'b00 = fp mul, 2'b01 = int64 mul, 2'b10 = uint64 mul
 
   output wire         fpr_mul_out_tvalid,
   output wire [63:0]  fpr_mul_out_tdata,
   
   output wire         int64_mul_out_tvalid,
-  output wire [127:0] int64_mul_out_tdata
-  
+  output wire [127:0] int64_mul_out_tdata,
+
+  output wire         uint64_mul_out_tvalid,
+  output wire [127:0] uint64_mul_out_tdata
 );
 
   // shared multiplier
@@ -42,6 +48,9 @@ module fpr_mul_top #(
   wire [63:0]  int64_mul_uint64_mult_in1;
   wire [63:0]  int64_mul_uint64_mult_in2;
 
+  wire [63:0]  uint64_mul_uint64_mult_in1;
+  wire [63:0]  uint64_mul_uint64_mult_in2;
+
   // FPR Multiplication
   fpr_mul #(
     .DEBUG (DEBUG)
@@ -49,7 +58,7 @@ module fpr_mul_top #(
     .clk                (clk),
     .rst_n              (rst_n),
 
-    .fpr_mul_in_tvalid  (fpr_mul_in_tvalid && (fpr_mul_op == 1'b0)),
+    .fpr_mul_in_tvalid  (fpr_mul_in_tvalid && (fpr_mul_op == 2'b00)),
     .fpr_mul_in1_tdata  (fpr_mul_in1_tdata),
     .fpr_mul_in2_tdata  (fpr_mul_in2_tdata),
 
@@ -69,7 +78,7 @@ module fpr_mul_top #(
     .clk                  (clk),
     .rst_n                (rst_n),
 
-    .int64_mul_in_tvalid  (fpr_mul_in_tvalid && (fpr_mul_op == 1'b1)),
+    .int64_mul_in_tvalid  (fpr_mul_in_tvalid && (fpr_mul_op == 2'b01)),
     .int64_mul_in1_tdata  (fpr_mul_in1_tdata),
     .int64_mul_in2_tdata  (fpr_mul_in2_tdata),
 
@@ -80,15 +89,41 @@ module fpr_mul_top #(
 
     .int64_mul_out_tvalid (int64_mul_out_tvalid),
     .int64_mul_out_tdata  (int64_mul_out_tdata)
-);
+  );
 
-  // Common 64-bit unsigned integer multiplier. Can be replaced with custom multiplier as needed.
-  // Karatsuba and comba code used is by magesh et al., modified for 0 latency
-  assign uint64_mult_in1 = (fpr_mul_op == 1'b0) ? fpr_mul_uint64_mult_in1 : int64_mul_uint64_mult_in1;
-  assign uint64_mult_in2 = (fpr_mul_op == 1'b0) ? fpr_mul_uint64_mult_in2 : int64_mul_uint64_mult_in2;
+  // Unsigned UINT64 Multiplication, full 128-bit product
+  uint64_mul #(
+    .DEBUG (DEBUG)
+  ) uint64_mul_inst (
+    .clk                   (clk),
+    .rst_n                 (rst_n),
 
-  `ifdef DEFAULT_MUL
-    assign uint64_mult_result = uint64_mult_in1 * uint64_mult_in2;
-  `endif
+    .uint64_mul_in_tvalid  (fpr_mul_in_tvalid && (fpr_mul_op == 2'b10)),
+    .uint64_mul_in1_tdata  (fpr_mul_in1_tdata),
+    .uint64_mul_in2_tdata  (fpr_mul_in2_tdata),
+
+    // to-from shared multiplier
+    .uint64_mult_in1       (uint64_mul_uint64_mult_in1),
+    .uint64_mult_in2       (uint64_mul_uint64_mult_in2),
+    .uint64_mult_result    (uint64_mult_result),
+
+    .uint64_mul_out_tvalid (uint64_mul_out_tvalid),
+    .uint64_mul_out_tdata  (uint64_mul_out_tdata)
+  );
+
+  // Common 64-bit unsigned integer multiplier, implementation chosen in defines.vh
+  // (default, Karatsuba or Comba, see uint_mul_core).
+  assign uint64_mult_in1 = (fpr_mul_op == 2'b00) ? fpr_mul_uint64_mult_in1   :
+                           (fpr_mul_op == 2'b01) ? int64_mul_uint64_mult_in1 : uint64_mul_uint64_mult_in1;
+  assign uint64_mult_in2 = (fpr_mul_op == 2'b00) ? fpr_mul_uint64_mult_in2   :
+                           (fpr_mul_op == 2'b01) ? int64_mul_uint64_mult_in2 : uint64_mul_uint64_mult_in2;
+
+  uint_mul_core #(
+    .N (64)
+  ) uint_mul_core_inst (
+    .a (uint64_mult_in1),
+    .b (uint64_mult_in2),
+    .p (uint64_mult_result)
+  );
 
 endmodule
